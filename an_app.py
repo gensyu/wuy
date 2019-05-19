@@ -16,5 +16,7 @@ class index(wuy.Window):    # name the class as the web/<class_name>.html
         self.exit()             # exit() is available in wuy.Window !
 
 if __name__=="__main__":
-    index()
+    window = index()
+    window.init_folder('web')
+    window.run('index.html')
     

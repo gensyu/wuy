@@ -53,6 +53,8 @@ currents = {}  # NEW
 isLog = None
 FULLSCREEN = "fullscreen"  # const !
 PATH = os.path.dirname(os.path.abspath(os.path.realpath(sys.argv[0])))
+WEBFOLDER_PATH = "."
+
 
 try:
     if not getattr(
@@ -414,7 +416,7 @@ async def handleWeb(req):  # serve all statics from web folder
 
     # classic serve static file or 404
 
-    file = path(os.path.join("web", ressource))
+    file = path(os.path.join(WEBFOLDER_PATH, ressource))
 
     if os.path.isfile(file):
         wlog("- serve static file", file)
@@ -695,6 +697,7 @@ class Base:
         isLog = log
 
         self._name = self.__class__.__name__
+        self.html_filename = 'index.html'
 
         self._routes = {
             n: v
@@ -710,23 +713,16 @@ class Base:
             ]  # ensure that a server-side init() is not exposed on client-side
         self._clients = []
 
-    def _render(
-        self, folder="."
-    ):  # override this, if you want to do more complex things
-        html = self.__doc__
-        if html is None:
-            # create startpage if not present and no docstring
-            startpage = path(
-                os.path.join(folder, "web", self.__class__.__name__ + ".html")
-            )
-            if not os.path.isfile(startpage):
-                if not os.path.isdir(os.path.dirname(startpage)):
-                    os.makedirs(os.path.dirname(startpage))
-                with open(startpage, "w+") as fid:
-                    fid.write("""<script src="wuy.js"></script>\n""")
-                    fid.write("""Hello Wuy'rld ;-)""")
-                print("Create '%s', just edit it" % startpage)
-        return html
+    def _render(self, folder="."):
+        # create startpage
+        global WEBFOLDER_PATH
+        startpage = path(os.path.join(folder, WEBFOLDER_PATH, self.html_filename))
+        if not os.path.isfile(startpage):
+            raise FileNotFoundError
+    
+    def init_folder(self, folder: str):
+        global WEBFOLDER_PATH
+        WEBFOLDER_PATH = folder
 
     @classmethod
     def _start(cls, host, port, instances, appmode):
@@ -800,14 +796,14 @@ class Window(Base):
     _port = None
     chromeArgs = []
 
-    def __init__(self, port=DEFAULT_PORT, log=True, **kwargs):
+    def __init__(self,  log=True, **kwargs):
         super().__init__(log)
         self.__dict__.update(kwargs)
         self._kwargs = kwargs
-        self._run(port=port)
 
-    def _run(self, port):  # start method (app can be True, (width,height), ...)
+    def run(self, html_filename, port=DEFAULT_PORT):  # start method (app can be True, (width,height), ...)
         app = self.size
+        self.html_filename = html_filename
 
         self._closeIfSocketClose = True
         host = "localhost"
@@ -821,7 +817,7 @@ class Window(Base):
         url = "http://%s:%s/%s?%s" % (
             host,
             port,
-            self._name + ".html",
+            html_filename,
             uuid.uuid4().hex,
         )
 
@@ -839,12 +835,12 @@ class Window(Base):
 
 
 class Server(Base):
-    def __init__(self, port=DEFAULT_PORT, log=True, autorun=True, **kwargs):
+    def __init__(self, log=True, **kwargs):
         super().__init__(log)
         self.__dict__.update(kwargs)
         self._kwargs = kwargs
-        if autorun:
-            Base._start("0.0.0.0", port, [self], False)
+    
+
 
     @classmethod
     def run(cls, port=DEFAULT_PORT, log=True, **kwargs):
